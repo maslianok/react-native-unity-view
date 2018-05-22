@@ -1,11 +1,14 @@
 package com.reactnative.unity.view;
 
+import android.util.Log;
+
 import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.uimanager.SimpleViewManager;
 import com.facebook.react.uimanager.ThemedReactContext;
+import android.content.Context;
 
 import java.util.Map;
 
@@ -19,8 +22,8 @@ public class UnityViewManager extends SimpleViewManager<UnityView> implements Li
     private static final String REACT_CLASS = "UnityView";
 
     public static final int COMMAND_POST_MESSAGE = 1;
-    public static final int COMMAND_PAUSE = 2;
-    public static final int COMMAND_RESUME = 3;
+    public static final int COMMAND_START_UNITY = 2;
+    public static final int COMMAND_STOP_UNITY = 3;
 
     private ReactApplicationContext context;
 
@@ -39,8 +42,8 @@ public class UnityViewManager extends SimpleViewManager<UnityView> implements Li
     public @Nullable Map<String, Integer> getCommandsMap() {
         return MapBuilder.of(
                 "postMessage", COMMAND_POST_MESSAGE,
-                "pause", COMMAND_PAUSE,
-                "resume", COMMAND_RESUME
+                "startUnity", COMMAND_START_UNITY,
+                "stopUnity", COMMAND_STOP_UNITY
         );
     }
 
@@ -53,12 +56,16 @@ public class UnityViewManager extends SimpleViewManager<UnityView> implements Li
                 String message = args.getString(2);
                 UnityUtils.postMessage(gameObject, methodName, message);
                 break;
-            case COMMAND_PAUSE:
-                UnityUtils.getPlayer().pause();
+            case COMMAND_START_UNITY:
+//                if (!UnityUtils.hasUnityPlayer()) {
+//                    UnityUtils.createPlayer(context.getCurrentActivity());
+//                } else {
+//                    UnityUtils.getPlayer().resume();
+//                }
                 break;
-            case COMMAND_RESUME:
-                UnityUtils.getPlayer().resume();
-                break;                
+            case COMMAND_STOP_UNITY:
+//                UnityUtils.stopUnity();
+                break;
         }
     }
 
@@ -84,20 +91,22 @@ public class UnityViewManager extends SimpleViewManager<UnityView> implements Li
 
     @Override
     public void onHostResume() {
-        if (!UnityUtils.hasUnityPlayer()) {
-            UnityUtils.createPlayer(context.getCurrentActivity());
-        } else {
-            UnityUtils.getPlayer().resume();
-        }
+
     }
 
     @Override
     public void onHostPause() {
-        UnityUtils.getPlayer().pause();
+        if (UnityUtils.hasUnityPlayer()) {
+            UnityUtils.getPlayer().pause();
+        }
     }
 
     @Override
     public void onHostDestroy() {
-        UnityUtils.getPlayer().quit();
+        if (UnityUtils.hasUnityPlayer()) {
+            UnityUtils.getPlayer().quit();
+        }
     }
+
+
 }

@@ -13,7 +13,7 @@
 - (id)initWithFrame:(CGRect)frame
 {
     self = [super initWithFrame:frame];
-    if (self){
+    if (self) {
         self.uView = (UIView*)GetAppController().unityView;
         [UnityUtils addUnityEventListener:self];
     }

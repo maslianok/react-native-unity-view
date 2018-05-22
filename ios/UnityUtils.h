@@ -12,7 +12,7 @@ bool UnityIsInited(void);
 void InitUnity(void);
 
 void UnityPostMessage(NSString* gameObject, NSString* methodName, NSString* message);
-
+    
 void UnityPauseCommand();
 
 void UnityResumeCommand();

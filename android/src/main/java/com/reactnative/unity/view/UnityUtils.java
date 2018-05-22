@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.graphics.PixelFormat;
 import android.os.Build;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 
@@ -31,43 +32,6 @@ public class UnityUtils {
         return unityPlayer != null;
     }
 
-    public static void createPlayer(Context context) {
-        if (unityPlayer != null) {
-            return;
-        }
-        final Activity activity = ((Activity)context);
-        activity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                activity.getWindow().setFormat(PixelFormat.RGBA_8888);
-                int flag = activity.getWindow().getAttributes().flags;
-                boolean fullScreen = false;
-                if((flag & WindowManager.LayoutParams.FLAG_FULLSCREEN) == WindowManager.LayoutParams.FLAG_FULLSCREEN) {
-                    fullScreen = true;
-                }
-
-                unityPlayer = new UnityPlayer(activity);
-
-                // start unity
-                addUnityViewToBackground();
-                try {
-                    // wait a moument. fix unity cannot start when startup.
-                    Thread.sleep( 100 );
-                    unityPlayer.windowFocusChanged(true);
-                    unityPlayer.requestFocus();
-                    unityPlayer.resume();
-                } catch (Exception e) {
-                }
-
-                // restore window layout
-                if (!fullScreen) {
-                    activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
-                    activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-                }
-            }
-        });
-    }
-
     public static void postMessage(String gameObject, String methodName, String message) {
         UnityPlayer.UnitySendMessage(gameObject, methodName, message);
     }
@@ -92,25 +56,99 @@ public class UnityUtils {
         mUnityEventListeners.remove(listener);
     }
 
-    public static void addUnityViewToBackground() {
-        if (unityPlayer.getParent() != null) {
-            ((ViewGroup)unityPlayer.getParent()).removeView(unityPlayer);
+    public static void addUnityViewToGroup(ViewGroup group, Context context) {
+        final ViewGroup reactGroup = group;
+        final Activity activity = ((Activity) context);
+
+        if (UnityUtils.hasUnityPlayer()) {
+            if (unityPlayer.getParent() != null) {
+                ((ViewGroup) unityPlayer.getParent()).removeView(unityPlayer);
+            }
+
+            group.addView(unityPlayer, MATCH_PARENT, MATCH_PARENT);
+            unityPlayer.windowFocusChanged(true);
+            unityPlayer.requestFocus();
+            unityPlayer.resume();
+
+            return;
         }
+
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                activity.getWindow().setFormat(PixelFormat.RGBA_8888);
+
+                unityPlayer = new UnityPlayer(activity);
+
+                if (unityPlayer.getParent() != null) {
+                    ((ViewGroup) unityPlayer.getParent()).removeView(unityPlayer);
+                }
+                reactGroup.addView(unityPlayer, MATCH_PARENT, MATCH_PARENT);
+
+                try {
+                    // wait a moment. fix unity cannot start when startup.
+                    Thread.sleep(200);
+                    unityPlayer.windowFocusChanged(true);
+                    unityPlayer.requestFocus();
+                    unityPlayer.resume();
+                } catch (Exception e) {
+                }
+
+                activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                // Clear low profile flags to apply non-fullscreen mode before splash screen
+                showSystemUi();
+                addUiVisibilityChangeListener();
+            }
+        });
+    }
+
+    public static void addUnityViewToBackground() {
+        if (unityPlayer == null) {
+            return;
+        }
+        if (unityPlayer.getParent() != null) {
+            ((ViewGroup) unityPlayer.getParent()).removeView(unityPlayer);
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             unityPlayer.setZ(-1f);
         }
-        final Activity activity = ((Activity)unityPlayer.getContext());
+
+        final Activity activity = ((Activity) unityPlayer.getContext());
         ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(1, 1);
         activity.addContentView(unityPlayer, layoutParams);
+
+        unityPlayer.pause();
     }
 
-    public static void addUnityViewToGroup(ViewGroup group) {
-        if (unityPlayer.getParent() != null) {
-            ((ViewGroup)unityPlayer.getParent()).removeView(unityPlayer);
+    private static int getLowProfileFlag() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT
+                ?
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                        View.SYSTEM_UI_FLAG_FULLSCREEN
+                :
+                View.SYSTEM_UI_FLAG_LOW_PROFILE;
+    }
+
+    private static void showSystemUi() {
+        if (unityPlayer == null) {
+            return;
         }
-        group.addView(unityPlayer, MATCH_PARENT, MATCH_PARENT);
-        unityPlayer.windowFocusChanged(true);
-        unityPlayer.requestFocus();
-        unityPlayer.resume();
+        unityPlayer.setSystemUiVisibility(unityPlayer.getSystemUiVisibility() & ~getLowProfileFlag());
+    }
+
+    private static void addUiVisibilityChangeListener() {
+        unityPlayer.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
+            @Override
+            public void onSystemUiVisibilityChange(final int visibility) {
+                // Whatever changes - force status/nav bar to be visible
+                showSystemUi();
+            }
+        });
     }
 }
+
